@@ -1,90 +1,56 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
-import requests
-from bs4 import BeautifulSoup
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, filters, CallbackContext
+from telegram import Bot
+import logging
 
-# Replace with your bot token
-BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+# Enable logging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Sample Playing XI for England and India
-playing_xi = {
-    "England": ["Ben Duckett", "Philip Salt", "Jos Buttler", "Harry Brook", "Liam Livingstone", "Jacob Bethell", 
-                "Jamie Overton", "Jofra Archer", "Brydon Carse", "Adil Rashid", "Mark Wood"],
-    "India": ["Sanju Samson", "Abhishek Sharma", "Tilak Varma", "Suryakumar Yadav", "Hardik Pandya", 
-              "Rinku Singh", "Shivam Dube", "Axar Patel", "Ravi Bishnoi", "Mohammed Shami", "Varun Chakaravarthy"]
-}
+# Your token
+TOKEN = '"8159859015:AAEk2mrnuWVfq79oSXQ0QkMyrJtxGjmOx9M'
 
-# Function to fetch player stats from CricMetric
-def fetch_player_stats(player_name, stat_type):
-    url = f"https://www.cricmetric.com/index.py"
-    params = {"search": player_name}
-    response = requests.get(url, params=params)
-    soup = BeautifulSoup(response.text, "html.parser")
+# Command to start the bot
+def start(update: Update, context: CallbackContext):
+    update.message.reply_text('Hello! I am your Cricket Bot.')
 
-    # Extract relevant data (Customize based on page structure)
-    stats = []
-    table = soup.find("table", {"class": "stat-table"})
-    if table:
-        rows = table.find_all("tr")[1:]  # Skip header
-        for row in rows:
-            cols = row.find_all("td")
-            stats.append([col.text.strip() for col in cols])
-    
-    if not stats:
-        return f"No {stat_type} records found for {player_name}."
+# Command to show player stats
+def player_stats(update: Update, context: CallbackContext):
+    # This should be updated with your actual logic to fetch player stats
+    update.message.reply_text('Fetching player stats...')
 
-    return f"Stats for {player_name} ({stat_type}):\n" + "\n".join([" | ".join(stat) for stat in stats])
+# Command to show head-to-head stats
+def head_to_head(update: Update, context: CallbackContext):
+    # This should be updated with your actual logic to fetch head-to-head stats
+    update.message.reply_text('Fetching head-to-head stats...')
 
-# Start Command
-def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text("Send a player name to get their records.")
+# Function to handle messages
+def handle_message(update: Update, context: CallbackContext):
+    text = update.message.text.lower()
+    if 'player' in text:
+        player_stats(update, context)
+    elif 'head-to-head' in text:
+        head_to_head(update, context)
+    else:
+        update.message.reply_text("Sorry, I didn't understand that.")
 
-# Player Name Handler
-def player_handler(update: Update, context: CallbackContext) -> None:
-    player_name = update.message.text
-
-    # Check if the player is in any team's Playing XI
-    team = None
-    for t, players in playing_xi.items():
-        if player_name in players:
-            team = t
-            break
-
-    if not team:
-        update.message.reply_text("Player not found in today's Playing XI.")
-        return
-
-    # Show options to user
-    keyboard = [
-        [InlineKeyboardButton("Twenty20 Stats", callback_data=f"t20|{player_name}")],
-        [InlineKeyboardButton("T20I Stats", callback_data=f"t20i|{player_name}")],
-        [InlineKeyboardButton("Venue Record", callback_data=f"venue|{player_name}")],
-        [InlineKeyboardButton("Head-to-Head", callback_data=f"h2h|{player_name}")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text(f"Select a record type for {player_name}:", reply_markup=reply_markup)
-
-# Callback Query Handler
-def button(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    query.answer()
-    
-    stat_type, player_name = query.data.split("|")
-    records = fetch_player_stats(player_name, stat_type)
-    
-    query.edit_message_text(text=records)
-
-# Main Function
 def main():
-    updater = Updater(BOT_TOKEN, use_context=True)
-    dp = updater.dispatcher
+    # Set up the Updater with the bot token
+    updater = Updater(token=TOKEN, use_context=True)
+    
+    # Get the dispatcher to register handlers
+    dispatcher = updater.dispatcher
 
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, player_handler))
-    dp.add_handler(CallbackQueryHandler(button))
+    # Register command and message handlers
+    dispatcher.add_handler(CommandHandler('start', start))
+    dispatcher.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
+    # Start the bot
     updater.start_polling()
+
+    # Run the bot until you press Ctrl-C
     updater.idle()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
