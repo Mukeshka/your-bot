@@ -2,13 +2,13 @@
 from telethon import TelegramClient, events
 import requests
 from bs4 import BeautifulSoup
-import openai
+
 
 # ✅ Replace with your actual credentials
 API_ID = "25057606"
 API_HASH = "bb37f3b7d70879d8e650f20d2beb09f6"
 BOT_TOKEN = "7668887729:AAFn_5E6V24iIEpqlqTjlH7UZqT0_n36tP4"
-OPENAI_API_KEY = "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"  # ⚠️ Replace with your OpenAI API Key
+
 
 # ✅ Initialize Telegram Bot
 bot = TelegramClient('cricket_ai_bot', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
