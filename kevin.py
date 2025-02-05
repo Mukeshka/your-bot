@@ -7,7 +7,7 @@ import time
 # ✅ TELEGRAM API CREDENTIALS
 api_id = "25057606"  # My.telegram.org se lo
 api_hash = "bb37f3b7d70879d8e650f20d2beb09f6"  # My.telegram.org se lo
-bot_token = "AAFn_5E6V24iIEpqlqTjlH7UZqT0_n36tP4"  # BotFather se lo
+bot_token = "7545239035:AAGsFcyO_CUcaWfjGEQSxOI5oipNmDGx6g4"  # BotFather se lo
 
 # ✅ TELEGRAM CLIENT SETUP
 client = TelegramClient('aviator_bot', api_id, api_hash).start(bot_token=bot_token)
