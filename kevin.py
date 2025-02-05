@@ -5,9 +5,9 @@ import sys  # For stopping the bot
 import random  # For selecting best players
 
 # 🔹 Replace with your actual credentials
-api_id = "25057606" 
-api_hash = "bb37f3b7d70879d8e650f20d2beb09f6"  
-bot_token = "7545239035:AAGsFcyO_CUcaWfjGEQSxOI5oipNmDGx6g4" 
+API_ID = "25057606" 
+API_HASH = "bb37f3b7d70879d8e650f20d2beb09f6"  
+BOT_TOKEN = "7545239035:AAGsFcyO_CUcaWfjGEQSxOI5oipNmDGx6g4" 
 
 # 🔹 Initialize Telegram Bot
 bot = TelegramClient("fantasy_cricket_bot", API_ID, API_HASH).start(bot_token=BOT_TOKEN)
