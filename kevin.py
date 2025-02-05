@@ -1,8 +1,7 @@
+import asyncio
 from telethon import TelegramClient, events
 import requests
 from bs4 import BeautifulSoup
-import sys  # For stopping the bot
-import random  # For selecting best players
 
 
 # 🔹 Replace with your actual credentials
@@ -10,119 +9,75 @@ API_ID = "25057606"
 API_HASH = "bb37f3b7d70879d8e650f20d2beb09f6"
 BOT_TOKEN = "7668887729:AAFn_5E6V24iIEpqlqTjlH7UZqT0_n36tP4"
 
-# 🔹 Initialize Telegram Bot
-bot = TelegramClient("fantasy_cricket_bot", API_ID, API_HASH).start(bot_token=BOT_TOKEN)
+client = TelegramClient("bot_session", API_ID, API_HASH).start(bot_token=BOT_TOKEN)
 
-# 🔹 Store user data
-user_state = {}
+# ✅ प्लेयर डेटा स्क्रैपिंग फ़ंक्शन (Crex.live से)
+def scrape_player_data(player_name):
+    search_url = f"https://crex.live/search?query={player_name.replace(' ', '%20')}"
+    headers = {"User-Agent": "Mozilla/5.0"}
 
-# 🔹 Start Command
-@bot.on(events.NewMessage(pattern="/start"))
-async def start(event):
-    user_state[event.sender_id] = {"step": 1}  # Start user flow
-    await event.reply("🏏 **Welcome to Fantasy Cricket Bot!**\n\nEnter **Team 1 Name**:")
-
-# 🔹 Handle User Input
-@bot.on(events.NewMessage)
-async def handle_input(event):
-    user_id = event.sender_id
-    if user_id not in user_state:
-        return  # Ignore if user hasn't started the bot
-
-    state = user_state[user_id]
-
-    if state["step"] == 1:  # Team 1 Name
-        state["team1"] = event.text.strip()
-        state["step"] = 2
-        await event.reply("✅ Team 1 saved! Now enter **Team 2 Name**:")
-
-    elif state["step"] == 2:  # Team 2 Name
-        state["team2"] = event.text.strip()
-        state["step"] = 3
-        await event.reply(f"✅ {state['team2']} saved! Now enter **Team 1 Players** (comma-separated):")
-
-    elif state["step"] == 3:  # Team 1 Players
-        state["team1_players"] = [player.strip() for player in event.text.split(",")]
-        state["step"] = 4
-        await event.reply(f"✅ Players for {state['team1']} saved! Now enter **Team 2 Players** (comma-separated):")
-
-    elif state["step"] == 4:  # Team 2 Players
-        state["team2_players"] = [player.strip() for player in event.text.split(",")]
-        state["step"] = 5
-        await event.reply("✅ Players saved! Fetching stats and building best teams...")
-
-        # Fetch stats and generate teams
-        all_players = state["team1_players"] + state["team2_players"]
-        best_18, best_11, captain, vice_captain = await fetch_and_analyze_players(event, all_players)
-
-        # Display final teams
-        response_text = "**🏏 Best 18 Players:**\n" + "\n".join([f"🔹 {p}" for p in best_18])
-        response_text += "\n\n**🏆 Mega GL Team (Best 11 Players):**\n" + "\n".join([f"⭐ {p}" for p in best_11])
-        response_text += f"\n\n**👑 Captain:** {captain}\n**🛡 Vice-Captain:** {vice_captain}"
-
-        await event.reply(response_text, link_preview=False)
-
-        del user_state[user_id]  # Reset user state
-
-# 🔹 Fetch & Analyze Player Stats
-async def fetch_and_analyze_players(event, players):
-    player_stats = []
-
-    for player in players:
-        formatted_name = player.replace(" ", "-").lower()
-        url = f"https://crex.live/player-profile/{formatted_name}"
-        stats = fetch_stats_from_crex(url)
-        if stats:
-            player_stats.append((player, stats))
-
-    # Sort by Batting Avg, SR, Bowling Wickets, Econ
-    sorted_players = sorted(player_stats, key=lambda x: (x[1]['bat_avg'], x[1]['bat_sr'], x[1]['bowl_wickets'], -x[1]['bowl_econ']), reverse=True)
-
-    best_18 = [p[0] for p in sorted_players[:18]]  # Top 18 Players
-    best_11 = best_18[:11]  # Best 11 for Mega GL
-    captain = random.choice(best_11[:5])  # Choose a Captain from top 5 players
-    vice_captain = random.choice([p for p in best_11 if p != captain])  # Choose VC from remaining
-
-    return best_18, best_11, captain, vice_captain
-
-# 🔹 Scrape Player Stats from Crex
-def fetch_stats_from_crex(url):
-    response = requests.get(url)
-    if response.status_code != 200:
-        return None
-
+    response = requests.get(search_url, headers=headers)
     soup = BeautifulSoup(response.text, "html.parser")
 
+    player_stats = {}  # डेटा स्टोर करने के लिए
+
+    # 🔹 स्क्रैपिंग लॉजिक (क्रेक्स वेबसाइट के स्ट्रक्चर पर डिपेंड करता है)
     try:
-        batting_section = soup.find("div", class_="player-career-batting")
-        bowling_section = soup.find("div", class_="player-career-bowling")
+        player_stats["name"] = player_name
+        player_stats["matches"] = soup.find("td", text="Mat").find_next_sibling("td").text
+        player_stats["runs"] = soup.find("td", text="R").find_next_sibling("td").text
+        player_stats["wickets"] = soup.find("td", text="W").find_next_sibling("td").text
+        player_stats["average"] = soup.find("td", text="Avg").find_next_sibling("td").text
+    except AttributeError:
+        return None  # अगर प्लेयर डेटा न मिले
 
-        # Extract Batting Stats
-        bat_stats = batting_section.find_all("tr")[-1].find_all("td")  # Last row has career stats
-        bat_avg = float(bat_stats[3].text.strip())  # Batting Avg
-        bat_sr = float(bat_stats[4].text.strip())  # Batting Strike Rate
+    return player_stats
 
-        # Extract Bowling Stats
-        bowl_stats = bowling_section.find_all("tr")[-1].find_all("td")
-        bowl_wickets = int(bowl_stats[3].text.strip())  # Wickets
-        bowl_econ = float(bowl_stats[4].text.strip())  # Economy
+# ✅ AI-Based प्लेयर एनालिसिस (Simple Scoring System)
+def analyze_players(players):
+    player_scores = {}
 
-        return {
-            "bat_avg": bat_avg,
-            "bat_sr": bat_sr,
-            "bowl_wickets": bowl_wickets,
-            "bowl_econ": bowl_econ
-        }
+    for player in players:
+        data = scrape_player_data(player)
+        if data:
+            # 🔹 स्कोरिंग सिस्टम (रन्स + विकेट्स + एवरेज के आधार पर)
+            score = int(data["runs"]) * 0.5 + int(data["wickets"]) * 10 + float(data["average"]) * 1.5
+            player_scores[player] = score
 
-    except:
-        return None
+    # 🔹 टॉप 18 और टॉप 11 प्लेयर्स निकालना
+    sorted_players = sorted(player_scores.items(), key=lambda x: x[1], reverse=True)
+    best_18 = [p[0] for p in sorted_players[:18]]
+    best_11 = [p[0] for p in sorted_players[:11]]
 
-# 🔹 Stop Command
-@bot.on(events.NewMessage(pattern="/stop"))
-async def stop_bot(event):
-    await event.reply("⚠ **Bot is stopping... Goodbye!** 👋")
-    sys.exit()
+    return best_18, best_11
 
-# 🔹 Run the bot
-print("Bot is running...")
-bot.run_until_disconnected()
+# ✅ /start कमांड (यूज़र से इनपुट लेने के लिए)
+@client.on(events.NewMessage(pattern="/start"))
+async def start(event):
+    await event.respond("👋 Welcome! कृपया दो टीमों के नाम और उनके प्लेयर्स भेजें।\n\n✍ *Format:* \n`Team1: Player1, Player2, Player3...`\n`Team2: Player1, Player2, Player3...`")
+    await asyncio.sleep(2)
+
+# ✅ प्लेयर डेटा प्रोसेसिंग
+@client.on(events.NewMessage)
+async def process_teams(event):
+    msg = event.message.text
+    if "Team1:" in msg and "Team2:" in msg:
+        try:
+            teams = msg.split("\n")
+            team1_players = teams[0].split(":")[1].strip().split(", ")
+            team2_players = teams[1].split(":")[1].strip().split(", ")
+
+            all_players = team1_players + team2_players
+            await event.respond("🔍 प्लेयर डेटा प्रोसेस किया जा रहा है... कृपया प्रतीक्षा करें।")
+            
+            best_18, best_11 = analyze_players(all_players)
+
+            # ✅ परिणाम भेजें
+            await event.respond(f"🏏 **Best 18 Players:**\n{', '.join(best_18)}")
+            await event.respond(f"🔥 **Mega GL Best 11 Players:**\n{', '.join(best_11)}")
+        except Exception as e:
+            await event.respond("❌ Error: कृपया सही फॉर्मेट में जानकारी दें।")
+
+# ✅ बॉट को रन करें
+print("🤖 Bot is running...")
+client.run_until_disconnected()
