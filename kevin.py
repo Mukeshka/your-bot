@@ -4,13 +4,14 @@ from bs4 import BeautifulSoup
 import sys  # For stopping the bot
 import random  # For selecting best players
 
+
 # 🔹 Replace with your actual credentials
-API_ID = "25057606" 
-API_HASH = "bb37f3b7d70879d8e650f20d2beb09f6"  
-BOT_TOKEN = "7545239035:AAGsFcyO_CUcaWfjGEQSxOI5oipNmDGx6g4" 
+API_ID = "YOUR_API_ID"
+API_HASH = "YOUR_API_HASH"
+BOT_TOKEN = "YOUR_BOT_TOKEN"
 
 # 🔹 Initialize Telegram Bot
-bot = TelegramClient("fantasy_cricket_bot", API_ID, API_HASH).start(bot_token=BOT_TOKEN)
+bot = TelegramClient("cricket_stats_bot", API_ID, API_HASH).start(bot_token=BOT_TOKEN)
 
 # 🔹 Store user data
 user_state = {}
@@ -19,9 +20,9 @@ user_state = {}
 @bot.on(events.NewMessage(pattern="/start"))
 async def start(event):
     user_state[event.sender_id] = {"step": 1}  # Start user flow
-    await event.reply("🏏 **Welcome to Fantasy Cricket Bot!**\n\nEnter **Team 1 Name**:")
+    await event.reply("🏏 **Welcome to Cricket Player Stats Bot!**\n\nEnter **Player Names** (comma-separated):")
 
-# 🔹 Handle User Input
+# 🔹 Handle Player Name Input
 @bot.on(events.NewMessage)
 async def handle_input(event):
     user_id = event.sender_id
@@ -30,36 +31,22 @@ async def handle_input(event):
 
     state = user_state[user_id]
 
-    if state["step"] == 1:  # Team 1 Name
-        state["team1"] = event.text.strip()
-        state["step"] = 2
-        await event.reply("✅ Team 1 saved! Now enter **Team 2 Name**:")
+    if state["step"] == 1:  # Player Names
+        players = [player.strip() for player in event.text.split(",")]
+        await event.reply(f"✅ Players received! Fetching stats...")
 
-    elif state["step"] == 2:  # Team 2 Name
-        state["team2"] = event.text.strip()
-        state["step"] = 3
-        await event.reply(f"✅ {state['team2']} saved! Now enter **Team 1 Players** (comma-separated):")
+        best_players = await fetch_and_analyze_players(event, players)
 
-    elif state["step"] == 3:  # Team 1 Players
-        state["team1_players"] = [player.strip() for player in event.text.split(",")]
-        state["step"] = 4
-        await event.reply(f"✅ Players for {state['team1']} saved! Now enter **Team 2 Players** (comma-separated):")
-
-    elif state["step"] == 4:  # Team 2 Players
-        state["team2_players"] = [player.strip() for player in event.text.split(",")]
-        state["step"] = 5
-        await event.reply("✅ Players saved! Fetching stats and building best teams...")
-
-        # Fetch stats and generate teams
-        all_players = state["team1_players"] + state["team2_players"]
-        best_18, best_11, captain, vice_captain = await fetch_and_analyze_players(event, all_players)
-
-        # Display final teams
-        response_text = "**🏏 Best 18 Players:**\n" + "\n".join([f"🔹 {p}" for p in best_18])
-        response_text += "\n\n**🏆 Mega GL Team (Best 11 Players):**\n" + "\n".join([f"⭐ {p}" for p in best_11])
-        response_text += f"\n\n**👑 Captain:** {captain}\n**🛡 Vice-Captain:** {vice_captain}"
-
+        # Display final results
+        response_text = "**🏏 Best Performing Players:**\n" + "\n".join([f"🔹 {p}" for p in best_players])
+        response_text += "\n\n✅ **Detailed Stats Sent Below**..."
         await event.reply(response_text, link_preview=False)
+
+        # Fetch & send detailed stats for each player
+        for player in players:
+            player_stats = fetch_stats_from_crex(player)
+            if player_stats:
+                await event.reply(player_stats, link_preview=False)
 
         del user_state[user_id]  # Reset user state
 
@@ -69,59 +56,90 @@ async def fetch_and_analyze_players(event, players):
 
     for player in players:
         formatted_name = player.replace(" ", "-").lower()
-        url = f"https://crex.live/player-profile/{formatted_name}"
-        stats = fetch_stats_from_crex(url)
+        stats = fetch_stats_from_crex(player)
         if stats:
             player_stats.append((player, stats))
 
     # Sort by Batting Avg, SR, Bowling Wickets, Econ
-    sorted_players = sorted(player_stats, key=lambda x: (x[1]['bat_avg'], x[1]['bat_sr'], x[1]['bowl_wickets'], -x[1]['bowl_econ']), reverse=True)
+    sorted_players = sorted(
+        player_stats, key=lambda x: (
+            x[1]['bat_avg'], x[1]['bat_sr'], x[1]['bowl_wickets'], -x[1]['bowl_econ']
+        ), reverse=True
+    )
 
-    best_18 = [p[0] for p in sorted_players[:18]]  # Top 18 Players
-    best_11 = best_18[:11]  # Best 11 for Mega GL
-    captain = random.choice(best_11[:5])  # Choose a Captain from top 5 players
-    vice_captain = random.choice([p for p in best_11 if p != captain])  # Choose VC from remaining
+    best_players = [p[0] for p in sorted_players[:5]]  # Top 5 Players
 
-    return best_18, best_11, captain, vice_captain
+    return best_players
 
 # 🔹 Scrape Player Stats from Crex
-def fetch_stats_from_crex(url):
+def fetch_stats_from_crex(player_name):
+    formatted_name = player_name.replace(" ", "-").lower()
+    url = f"https://crex.live/player-profile/{formatted_name}"
+
     response = requests.get(url)
     if response.status_code != 200:
-        return None
+        return f"❌ **Could not fetch data for {player_name}**"
 
     soup = BeautifulSoup(response.text, "html.parser")
 
     try:
+        # Extract Basic Information
+        player_info = soup.find("h2", class_="formTitle").text.strip()
+        birth_date = soup.find("td", class_="key", text="Birth").find_next_sibling("td").text.strip()
+        nationality = soup.find("td", class_="key", text="Nationality").find_next_sibling("td").text.strip()
+        teams = ", ".join([team.text.strip() for team in soup.find_all("span", class_="flexCenter")])
+
+        # Extract Social Media Links
+        instagram = soup.find("a", href=True, text="Instagram")
+        twitter = soup.find("a", href=True, text="Twitter")
+        instagram_link = instagram["href"] if instagram else "Not Available"
+        twitter_link = twitter["href"] if twitter else "Not Available"
+
         # Extract Recent Batting & Bowling Form
-        recent_batting = soup.find("div", class_="recent-batting")
-        recent_bowling = soup.find("div", class_="recent-bowling")
+        recent_batting = soup.find("tbody", id="recentId Batting")
+        recent_bowling = soup.find("tbody", id="recentId Bowling")
+
+        recent_bat_scores = [row.find_all("td")[1].text.strip() for row in recent_batting.find_all("tr")[:5]]
+        recent_bowl_scores = [row.find_all("td")[1].text.strip() for row in recent_bowling.find_all("tr")[:5]]
 
         # Extract Career Stats
         career_batting = soup.find("div", class_="player-career-batting")
         career_bowling = soup.find("div", class_="player-career-bowling")
 
         # Extract Career Batting Stats
-        bat_stats = career_batting.find_all("tr")[-1].find_all("td")  # Last row has career stats
-        bat_avg = float(bat_stats[3].text.strip())  # Batting Avg
-        bat_sr = float(bat_stats[4].text.strip())  # Batting Strike Rate
+        bat_stats = career_batting.find_all("tr")[-1].find_all("td")
+        bat_avg = float(bat_stats[8].text.strip())  # Batting Avg
+        bat_sr = float(bat_stats[7].text.strip())  # Batting Strike Rate
 
         # Extract Career Bowling Stats
         bowl_stats = career_bowling.find_all("tr")[-1].find_all("td")
         bowl_wickets = int(bowl_stats[3].text.strip())  # Wickets
         bowl_econ = float(bowl_stats[4].text.strip())  # Economy
 
-        return {
-            "bat_avg": bat_avg,
-            "bat_sr": bat_sr,
-            "bowl_wickets": bowl_wickets,
-            "bowl_econ": bowl_econ,
-            "recent_batting": recent_batting.text.strip() if recent_batting else "N/A",
-            "recent_bowling": recent_bowling.text.strip() if recent_bowling else "N/A"
-        }
+        stats_text = f"""
+🏏 **{player_info} - Player Stats**  
+🎂 **Birth Date:** {birth_date}  
+🌍 **Nationality:** {nationality}  
+🔹 **Teams Played For:** {teams}  
+
+📌 **Recent Batting Form:** {', '.join(recent_bat_scores)}  
+🎯 **Recent Bowling Form:** {', '.join(recent_bowl_scores)}  
+
+🏆 **Career Batting Stats:**  
+🔹 Average: {bat_avg}  
+🔹 Strike Rate: {bat_sr}  
+
+🎯 **Career Bowling Stats:**  
+🔹 Wickets: {bowl_wickets}  
+🔹 Economy: {bowl_econ}  
+
+📲 **Social Media:**  
+📸 [Instagram]({instagram_link}) | 🐦 [Twitter]({twitter_link})
+        """
+        return stats_text
 
     except:
-        return None
+        return f"❌ **Error extracting stats for {player_name}**"
 
 # 🔹 Stop Command
 @bot.on(events.NewMessage(pattern="/stop"))
