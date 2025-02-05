@@ -1,7 +1,6 @@
 from telethon import TelegramClient, events
 import requests
 from bs4 import BeautifulSoup
-import pandas as pd
 
 # Bot credentials (Replace with your actual credentials)
 API_ID = "25057606"
