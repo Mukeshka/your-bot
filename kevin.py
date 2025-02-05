@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 import sys  # For stopping the bot
 import random  # For selecting best players
 
+
 # 🔹 Replace with your actual credentials
 API_ID = "25057606"
 API_HASH = "bb37f3b7d70879d8e650f20d2beb09f6"
