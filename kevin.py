@@ -6,9 +6,9 @@ import random  # For selecting best players
 
 
 # 🔹 Replace with your actual credentials
-API_ID = "YOUR_API_ID"
-API_HASH = "YOUR_API_HASH"
-BOT_TOKEN = "YOUR_BOT_TOKEN"
+API_ID = "25057606" 
+API_HASH = "bb37f3b7d70879d8e650f20d2beb09f6"  
+BOT_TOKEN = "7545239035:AAGsFcyO_CUcaWfjGEQSxOI5oipNmDGx6g4"
 
 # 🔹 Initialize Telegram Bot
 bot = TelegramClient("cricket_stats_bot", API_ID, API_HASH).start(bot_token=BOT_TOKEN)
