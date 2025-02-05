@@ -2,97 +2,87 @@
 from telethon import TelegramClient, events
 import requests
 from bs4 import BeautifulSoup
+import time
 
+# ✅ TELEGRAM API CREDENTIALS
+api_id = "25057606"  # My.telegram.org se lo
+api_hash = "bb37f3b7d70879d8e650f20d2beb09f6"  # My.telegram.org se lo
+bot_token = "AAFn_5E6V24iIEpqlqTjlH7UZqT0_n36tP4"  # BotFather se lo
 
-# ✅ Replace with your actual credentials
-API_ID = "25057606"
-API_HASH = "bb37f3b7d70879d8e650f20d2beb09f6"
-BOT_TOKEN = "7668887729:AAFn_5E6V24iIEpqlqTjlH7UZqT0_n36tP4"
+# ✅ TELEGRAM CLIENT SETUP
+client = TelegramClient('aviator_bot', api_id, api_hash).start(bot_token=bot_token)
 
+# ✅ 1Win Aviator Game URL
+aviator_url = "https://1wyfui.life/casino/play/aviator?p=ftgc"
 
-# ✅ Initialize Telegram Bot
-bot = TelegramClient('cricket_ai_bot', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
-teams = {}
+# ✅ Game History Data
+previous_results = []
 
-# ✅ Fetch Player Stats from Crex.live
-def fetch_player_stats(player_name):
+# ✅ Scraping Function
+def get_aviator_results():
     try:
-        url = f"https://www.crex.live/search?q={player_name.replace(' ', '%20')}"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        # Example: Find first player's link
-        player_link = soup.find("a", class_="player-link")
-        if player_link:
-            player_url = "https://www.crex.live" + player_link["href"]
-            player_response = requests.get(player_url, headers=headers)
-            player_soup = BeautifulSoup(player_response.text, "html.parser")
-
-            # Extract recent match stats
-            stats = player_soup.find_all("span", class_="stat")
-            if stats:
-                return f"🔹 {player_name} Stats: {stats[0].text} Runs, {stats[1].text} Wickets"
-            else:
-                return f"⚠ No stats found for {player_name}."
-        else:
-            return f"⚠ Player {player_name} not found on Crex.live."
+        response = requests.get(aviator_url, headers={"User-Agent": "Mozilla/5.0"})
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # 📌 FIND RESULT VALUES (Modify selector based on actual site structure)
+        crash_values = [float(div.text.replace("x", "")) for div in soup.find_all("div", class_="crash-result-class")]  # 👈 Update the class name!
+        
+        return crash_values[:5]  # Last 5 results return karega
     except Exception as e:
-        return f"❌ Error fetching data: {str(e)}"
+        print(f"Scraping Error: {e}")
+        return []
 
-# ✅ AI-Based Player Analysis using OpenAI
-def ai_analyze_team(players):
-    try:
-        openai.api_key = OPENAI_API_KEY
-        prompt = f"Select best 18 and best 11 players for mega GL team based on recent performance:\n\n{players}"
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[{"role": "system", "content": prompt}]
-        )
-        return response['choices'][0]['message']['content']
-    except Exception as e:
-        return f"⚠ AI Analysis Error: {str(e)}"
+# ✅ Pattern Detection Function
+def detect_pattern(results):
+    if len(results) < 3:
+        return None  # Kam data hone par prediction na kare
 
-# ✅ Start Command
-@bot.on(events.NewMessage(pattern='/start'))
-async def start(event):
-    await event.respond("👋 Welcome! Enter teams using:\n\n`/teams Team1 vs Team2`")
+    last_3 = results[:3]  # Latest 3 values
+    pattern = None
+    prediction = None
 
-# ✅ Handle Team Names Input
-@bot.on(events.NewMessage(pattern=r"/teams (.+) vs (.+)"))
-async def set_teams(event):
-    team1, team2 = event.pattern_match.group(1), event.pattern_match.group(2)
-    teams["team1"] = team1
-    teams["team2"] = team2
-    teams["players"] = []
-    await event.respond(f"✅ Teams set: **{team1}** vs **{team2}**\n\nNow enter Playing XI:\n`/playingxi Player1, Player2, ...`")
+    # ✅ Pattern 1: (1 time 2x ke neeche, phir 2x ke upar)
+    if last_3[1] < 2.0 and last_3[2] > 2.0:
+        pattern = "Pattern 1"
+        prediction = 2.0  # Next prediction
 
-# ✅ Handle Playing XI Input
-@bot.on(events.NewMessage(pattern=r"/playingxi (.+)"))
-async def set_playing_xi(event):
-    players = event.pattern_match.group(1).split(", ")
-    teams["players"] = players
+    # ✅ Pattern 2: (2 baar 2x se neeche crash)
+    elif last_3[0] < 2.0 and last_3[1] < 2.0:
+        pattern = "Pattern 2"
+        prediction = 2.0  # Next prediction
 
-    # Fetch stats for each player
-    analysis = []
-    for player in players:
-        stats = fetch_player_stats(player)
-        analysis.append(stats)
+    return pattern, prediction
+
+# ✅ Telegram Message Sending Function
+async def send_prediction(pattern, prediction):
+    message = f"📢 **Aviator Signal Alert!** 🚀\n\n"
+    message += f"🎯 **Pattern Detected:** {pattern}\n"
+    message += f"🎲 **Next Prediction:** {prediction}x\n"
+    message += f"💡 **Auto Cashout:** {prediction}.00x\n\n"
+    message += f"🔗 [Play Now on 1Win]({aviator_url})"
     
-    result = "\n".join(analysis)
-    await event.respond(f"📊 **Player Stats & Analysis:**\n\n{result}\n\n📢 Use `/bestteam` for AI-based best team.")
+    await client.send_message("@your_channel_username", message, link_preview=False)
 
-# ✅ Handle AI-Based Best 18 & Best 11 Selection
-@bot.on(events.NewMessage(pattern="/bestteam"))
-async def best_team(event):
-    if "players" not in teams or not teams["players"]:
-        await event.respond("❌ Please enter Playing XI first using `/playingxi`")
-        return
+# ✅ Main Bot Loop
+async def main_loop():
+    global previous_results
+    while True:
+        new_results = get_aviator_results()
 
-    # AI Analysis
-    ai_result = ai_analyze_team(teams["players"])
-    await event.respond(f"🤖 **AI-Based Best Team Analysis:**\n\n{ai_result}")
+        if new_results and new_results != previous_results:
+            previous_results = new_results
+            pattern, prediction = detect_pattern(new_results)
 
-# ✅ Run the bot
+            if pattern and prediction:
+                await send_prediction(pattern, prediction)
+
+        time.sleep(10)  # ⏳ 10 sec delay
+
+# ✅ Start the bot
+@client.on(events.NewMessage(pattern='/start'))
+async def start(event):
+    await event.respond("👋 Welcome to **Aviator Prediction Bot**!\n\n🔔 This bot sends **Aviator game signals** based on patterns.\n\n⏳ Please wait for the next signal!")
+
 print("✅ Bot is running...")
-bot.run_until_disconnected()
+client.loop.run_until_complete(main_loop())
+client.run_until_disconnected()
