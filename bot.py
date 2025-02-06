@@ -15,7 +15,7 @@ if not os.path.exists('sessions'):
     os.makedirs('sessions')
 
 # ✅ TELEGRAM CLIENT SETUP (New session path to avoid locking issue)
-client = TelegramClient('sessions/aviator_bot', api_id, api_hash)
+client = TelegramClient('sessions/Kevinaviator_bot', api_id, api_hash)
 
 # ✅ 1Win Aviator Game URL
 aviator_url = "https://1wyfui.life/casino/play/aviator?p=ftgc"
