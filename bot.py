@@ -1,12 +1,18 @@
+import os
 import time
 import requests
 from bs4 import BeautifulSoup
 from telethon import TelegramClient, events
 
+
 # ✅ TELEGRAM API CREDENTIALS
 api_id = "25057606"  # My.telegram.org se lo
 api_hash = "bb37f3b7d70879d8e650f20d2beb09f6"  # My.telegram.org se lo
 bot_token = "7545239035:AAF1BjXGjU43B8hcQbQ0KIucmpCN-DimziM"  # BotFather se lo
+
+# Ensure the sessions directory exists
+if not os.path.exists('sessions'):
+    os.makedirs('sessions')
 
 # ✅ TELEGRAM CLIENT SETUP (New session path to avoid locking issue)
 client = TelegramClient('sessions/aviator_bot', api_id, api_hash)
@@ -22,10 +28,10 @@ def get_aviator_results():
     try:
         response = requests.get(aviator_url, headers={"User-Agent": "Mozilla/5.0"})
         soup = BeautifulSoup(response.text, 'html.parser')
-        
+
         # 📌 FIND RESULT VALUES (Modify selector based on actual site structure)
         crash_values = [float(div.text.replace("x", "")) for div in soup.find_all("div", class_="crash-result-class")]  # 👈 Update the class name!
-        
+
         return crash_values[:5]  # Last 5 results return karega
     except Exception as e:
         print(f"Scraping Error: {e}")
@@ -59,7 +65,7 @@ async def send_prediction(pattern, prediction):
     message += f"🎲 **Next Prediction:** {prediction}x\n"
     message += f"💡 **Auto Cashout:** {prediction}.00x\n\n"
     message += f"🔗 [Play Now on 1Win]({aviator_url})"
-    
+
     await client.send_message("@your_channel_username", message, link_preview=False)
 
 # ✅ Main Bot Loop
