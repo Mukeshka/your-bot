@@ -1,5 +1,5 @@
 from telethon import TelegramClient, events
-import json
+
 
 # 🔹 Replace with your actual credentials
 API_ID = "25057606" 
@@ -13,7 +13,7 @@ bot = TelegramClient("join_channel_bot", API_ID, API_HASH)
 @bot.on(events.NewMessage(pattern="/start"))
 async def start(event):
     message = """
-🎯 **Join Our Fantasy Cricket Community!** 🏏  
+🎯 **Join Our Kevin Fantasy Cricket Teams Community!** 🏏  
 
 🔥 **Mega GL Predictions & Expert Teams**  
 🔗 **Join Telegram:** [Kevin Fantasy Teams](https://t.me/kevinfantasyteams)  
