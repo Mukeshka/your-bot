@@ -1,56 +1,87 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, filters, CallbackContext
-from telegram import Bot
-import logging
+from telethon import TelegramClient, events
+import requests
+from bs4 import BeautifulSoup
+import time
 
-# Enable logging
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
-logger = logging.getLogger(__name__)
+# ✅ TELEGRAM API CREDENTIALS
+api_id = "25057606"  # My.telegram.org se lo
+api_hash = "bb37f3b7d70879d8e650f20d2beb09f6"  # My.telegram.org se lo
+bot_token = "7545239035:AAF1BjXGjU43B8hcQbQ0KIucmpCN-DimziM"  # BotFather se lo
 
-# Your token
-TOKEN = '"8159859015:AAEk2mrnuWVfq79oSXQ0QkMyrJtxGjmOx9M'
+# ✅ TELEGRAM CLIENT SETUP
+client = TelegramClient('aviator_bot', api_id, api_hash).start(bot_token=bot_token)
 
-# Command to start the bot
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text('Hello! I am your Cricket Bot.')
+# ✅ 1Win Aviator Game URL
+aviator_url = "https://1wyfui.life/casino/play/aviator?p=ftgc"
 
-# Command to show player stats
-def player_stats(update: Update, context: CallbackContext):
-    # This should be updated with your actual logic to fetch player stats
-    update.message.reply_text('Fetching player stats...')
+# ✅ Game History Data
+previous_results = []
 
-# Command to show head-to-head stats
-def head_to_head(update: Update, context: CallbackContext):
-    # This should be updated with your actual logic to fetch head-to-head stats
-    update.message.reply_text('Fetching head-to-head stats...')
+# ✅ Scraping Function
+def get_aviator_results():
+    try:
+        response = requests.get(aviator_url, headers={"User-Agent": "Mozilla/5.0"})
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # 📌 FIND RESULT VALUES (Modify selector based on actual site structure)
+        crash_values = [float(div.text.replace("x", "")) for div in soup.find_all("div", class_="crash-result-class")]  # 👈 Update the class name!
+        
+        return crash_values[:5]  # Last 5 results return karega
+    except Exception as e:
+        print(f"Scraping Error: {e}")
+        return []
 
-# Function to handle messages
-def handle_message(update: Update, context: CallbackContext):
-    text = update.message.text.lower()
-    if 'player' in text:
-        player_stats(update, context)
-    elif 'head-to-head' in text:
-        head_to_head(update, context)
-    else:
-        update.message.reply_text("Sorry, I didn't understand that.")
+# ✅ Pattern Detection Function
+def detect_pattern(results):
+    if len(results) < 3:
+        return None  # Kam data hone par prediction na kare
 
-def main():
-    # Set up the Updater with the bot token
-    updater = Updater(token=TOKEN, use_context=True)
+    last_3 = results[:3]  # Latest 3 values
+    pattern = None
+    prediction = None
+
+    # ✅ Pattern 1: (1 time 2x ke neeche, phir 2x ke upar)
+    if last_3[1] < 2.0 and last_3[2] > 2.0:
+        pattern = "Pattern 1"
+        prediction = 2.0  # Next prediction
+
+    # ✅ Pattern 2: (2 baar 2x se neeche crash)
+    elif last_3[0] < 2.0 and last_3[1] < 2.0:
+        pattern = "Pattern 2"
+        prediction = 2.0  # Next prediction
+
+    return pattern, prediction
+
+# ✅ Telegram Message Sending Function
+async def send_prediction(pattern, prediction):
+    message = f"📢 **Aviator Signal Alert!** 🚀\n\n"
+    message += f"🎯 **Pattern Detected:** {pattern}\n"
+    message += f"🎲 **Next Prediction:** {prediction}x\n"
+    message += f"💡 **Auto Cashout:** {prediction}.00x\n\n"
+    message += f"🔗 [Play Now on 1Win]({aviator_url})"
     
-    # Get the dispatcher to register handlers
-    dispatcher = updater.dispatcher
+    await client.send_message("@your_channel_username", message, link_preview=False)
 
-    # Register command and message handlers
-    dispatcher.add_handler(CommandHandler('start', start))
-    dispatcher.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+# ✅ Main Bot Loop
+async def main_loop():
+    global previous_results
+    while True:
+        new_results = get_aviator_results()
 
-    # Start the bot
-    updater.start_polling()
+        if new_results and new_results != previous_results:
+            previous_results = new_results
+            pattern, prediction = detect_pattern(new_results)
 
-    # Run the bot until you press Ctrl-C
-    updater.idle()
+            if pattern and prediction:
+                await send_prediction(pattern, prediction)
 
-if __name__ == '__main__':
-    main()
+        time.sleep(10)  # ⏳ 10 sec delay
+
+# ✅ Start the bot
+@client.on(events.NewMessage(pattern='/start'))
+async def start(event):
+    await event.respond("👋 Welcome to **Aviator Prediction Bot**!\n\n🔔 This bot sends **Aviator game signals** based on patterns.\n\n⏳ Please wait for the next signal!")
+
+print("✅ Bot is running...")
+client.loop.run_until_complete(main_loop())
+client.run_until_disconnected()
