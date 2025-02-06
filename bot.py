@@ -1,15 +1,15 @@
-from telethon import TelegramClient, events
+import time
 import requests
 from bs4 import BeautifulSoup
-import time
+from telethon import TelegramClient, events
 
 # ✅ TELEGRAM API CREDENTIALS
 api_id = "25057606"  # My.telegram.org se lo
 api_hash = "bb37f3b7d70879d8e650f20d2beb09f6"  # My.telegram.org se lo
 bot_token = "7545239035:AAF1BjXGjU43B8hcQbQ0KIucmpCN-DimziM"  # BotFather se lo
 
-# ✅ TELEGRAM CLIENT SETUP
-client = TelegramClient('aviator_bot', api_id, api_hash).start(bot_token=bot_token)
+# ✅ TELEGRAM CLIENT SETUP (New session path to avoid locking issue)
+client = TelegramClient('sessions/aviator_bot', api_id, api_hash)
 
 # ✅ 1Win Aviator Game URL
 aviator_url = "https://1wyfui.life/casino/play/aviator?p=ftgc"
@@ -82,6 +82,10 @@ async def main_loop():
 async def start(event):
     await event.respond("👋 Welcome to **Aviator Prediction Bot**!\n\n🔔 This bot sends **Aviator game signals** based on patterns.\n\n⏳ Please wait for the next signal!")
 
-print("✅ Bot is running...")
-client.loop.run_until_complete(main_loop())
-client.run_until_disconnected()
+async def main():
+    await client.start(bot_token=bot_token)
+    print("✅ Bot started successfully!")
+    await main_loop()
+
+with client:
+    client.loop.run_until_complete(main())
