@@ -4,7 +4,7 @@ import json
 # 🔹 Replace with your actual credentials
 API_ID = "25057606" 
 API_HASH = "bb37f3b7d70879d8e650f20d2beb09f6"  
-BOT_TOKEN = "7545239035:AAGsFcyO_CUcaWfjGEQSxOI5oipNmDGx6g4"
+BOT_TOKEN = "7668887729:AAFn_5E6V24iIEpqlqTjlH7UZqT0_n36tP4"
 
 # 🔹 Initialize Telegram Bot
 bot = TelegramClient("join_channel_bot", API_ID, API_HASH)
@@ -19,7 +19,7 @@ async def start(event):
 🔗 **Join Telegram:** [Kevin Fantasy Teams](https://t.me/kevinfantasyteams)  
 📺 **Subscribe on YouTube:** [Kevin Fantasy Teams](https://www.youtube.com/@Kevinfantasyteams)  
 
-🚀 Get daily match predictions, best fantasy teams, and expert analysis! Don't miss out!  
+🚀 Get daily match predictions, best fantasy teams booking ke liye massage kare @KevinfantasyteamKft , and expert analysis! Don't miss out!  
     """
     await event.reply(message, link_preview=True)
 
