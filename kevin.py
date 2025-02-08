@@ -1,50 +1,59 @@
+import asyncio
 from telethon import TelegramClient, events
 
+# 🔹 अपने टेलीग्राम क्रेडेंशियल्स डालें
+API_ID = "25057606"
+API_HASH = "bb37f3b7d70879d8e650f20d2beb09f6"
+BOT_TOKEN = "7668887729:AAFn_5E6V24iIEpqlqT0_n36tP4"
 
-# 🔹 Replace with your actual credentials
-API_ID = "25057606" 
-API_HASH = "bb37f3b7d70879d8e650f20d2beb09f6"  
-BOT_TOKEN = "7668887729:AAFn_5E6V24iIEpqlqTjlH7UZqT0_n36tP4"
+# 🔹 बॉट को इनिशियलाइज़ करें
+bot = TelegramClient("reply_forward_bot", API_ID, API_HASH).start(bot_token=BOT_TOKEN)
 
-# 🔹 Initialize Telegram Bot
-bot = TelegramClient("join_channel_bot", API_ID, API_HASH)
+# 🔹 टेलीग्राम यूज़रनेम जहाँ मैसेज फॉरवर्ड होंगे (आपका अकाउंट)
+ADMIN_USERNAME = "@KevinfantasyteamKft"
 
-# 🔹 Start Command (Send Message Every Time)
-@bot.on(events.NewMessage(pattern="/start"))
-async def start(event):
-    message = """
-🎯 **Join Our Kevin Fantasy Cricket Teams Community!** 🏏  
+# 🔹 एक डिक्शनरी (dict) जहाँ यूज़र्स के मैसेज स्टोर होंगे
+user_messages = {}
 
-🔥 **Mega GL Predictions & Expert Teams**  
-🔗 **Join Telegram:** [Kevin Fantasy Teams](https://t.me/kevinfantasyteams)  
-📺 **Subscribe on YouTube:** [Kevin Fantasy Teams](https://www.youtube.com/@Kevinfantasyteams)  
-
-🚀 Get daily match predictions, best fantasy teams booking ke liye massage kare @KevinfantasyteamKft , and expert analysis! Don't miss out!  
-    """
-    await event.reply(message, link_preview=True)
-
-# 🔹 Your Telegram username (where messages will be forwarded)
-YOUR_USERNAME = "@KevinfantasyteamKft"
-
-# 🔹 Initialize Telegram Bot
-bot = TelegramClient("forward_bot", API_ID, API_HASH).start(bot_token=BOT_TOKEN)
-
-# 🔹 Forward all messages to your username
+# 🔹 सभी नए मैसेज हैंडलर (चैनल के मैसेज को रोकें)
 @bot.on(events.NewMessage)
-async def forward_message(event):
-    try:
-        # Forward the message to your username
-        await event.forward_to(YOUR_USERNAME)
-        print(f"Message forwarded to {YOUR_USERNAME}")
-    except Exception as e:
-        print(f"Error forwarding message: {e}")
-# 🔹 Run the bot
+async def handle_message(event):
+    if event.is_channel:  # अगर मैसेज चैनल से आया है, तो इसे स्किप करें
+        return
+    
+    sender = await event.get_sender()
+    user_id = sender.id  # यूज़र का Telegram ID
+    
+    if user_id != ADMIN_USERNAME:  # अगर मैसेज यूज़र से आया है
+        # मैसेज को फॉरवर्ड करें और स्टोर करें
+        user_messages[user_id] = event  # यूज़र का मैसेज स्टोर करें
+        await event.forward_to(ADMIN_USERNAME)
+        print(f"Message received from {user_id} and forwarded to {ADMIN_USERNAME}")
+
+@bot.on(events.NewMessage(from_users=ADMIN_USERNAME))
+async def reply_to_user(event):
+    # चेक करें कि रिप्लाई किसी स्टोर किए गए यूज़र मैसेज का जवाब है या नहीं
+    if event.reply_to and event.reply_to.reply_markup is None:
+        original_msg = await event.get_reply_message()
+        sender_id = None
+
+        # खोजें कि यह किस यूज़र के मैसेज का जवाब है
+        for user_id, user_msg in user_messages.items():
+            if user_msg.id == original_msg.id:
+                sender_id = user_id
+                break
+
+        if sender_id:
+            # यूज़र को रिप्लाई भेजें
+            await bot.send_message(sender_id, event.text)
+            print(f"Replied to {sender_id}: {event.text}")
+
+# 🔹 बॉट को 24/7 चलाने के लिए
 async def main():
-    await bot.start(bot_token=BOT_TOKEN)
-    print("Bot is running...")
+    print("Bot is running 24/7...")
     await bot.run_until_disconnected()
 
-# 🔹 Run the bot
-print("Bot is running...")
-bot.run_until_disconnected()
-
+# 🔹 बॉट शुरू करें
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
