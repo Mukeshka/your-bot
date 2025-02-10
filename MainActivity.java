@@ -1,12 +1,12 @@
 package com.yourapp.aviator;
 
 import android.os.Bundle;
-import android.util.Log;
+import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
-import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
     private AviatorMultiplierReader aviatorReader;
+    private ClockDisplay clockDisplay;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -23,5 +23,17 @@ public class MainActivity extends AppCompatActivity {
 
         // Start auto-updating data every 5 minutes
         aviatorReader.startAutoUpdate(5);
+
+        // Initialize and start clock display
+        TextView clockTextView = findViewById(R.id.clockTextView);
+        clockDisplay = new ClockDisplay(clockTextView);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (clockDisplay != null) {
+            clockDisplay.stopClock();
+        }
     }
 }
